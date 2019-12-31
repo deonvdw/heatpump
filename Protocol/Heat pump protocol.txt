@@ -1,0 +1,84 @@
+Heat pump proto notes:
+======================
+
+Physical layer
+--------------
+
+The heat pump is connected to the keypad by three wires:
+* [Brown] 20v power
+* [Yellow] Ground
+* [Blue] Data line
+
+The data line is normally idle at ~4.4V. To indicate a logical low level the heat pump pulls the data line to ~0.1V,
+the keypad pulls the data line to ~2V. This difference can be used to include/exclude keypad messages by setting an
+appropriate trigger level.
+
+Protocol structure
+------------------
+
+* Messages are 104 bits (13 bytes).
+* NBNB: messages are sent LSB first.
+* Data bus is normally high and pulled low to send a message
+* New messages start with a ~9ms low pulse followed by a 4.5ms high period. Then the message bits are sent
+* Each bit starts with a low period of ~1ms and then followed by a high period of ~1ms (high bit) or ~3ms (low bit)
+* A final low pulse is transmitted to terminate high period of the previous bit.   
+* The first byte identifies the message type.
+
+The heat pump alternates between transmitting two different messages (ID= D2 / DD) every 3 seconds. The keypad
+transmits messages with ID= 33 and 35.
+
+	
+Message DD: (measured values / read only)
+-----------------------------------------
+  Byte1:	DD (message ID)
+  Byte2:	Reg E
+  Byte3:	Reg F
+  Byte4:	Reg 10
+  Byte5:	Reg 11
+  Byte6:	Reg 12
+  Byte7:	Reg 13
+  Byte8:	(unknown)
+  Byte9:	Reg 15
+  Byte10:	(unknown)
+  Byte11:	Reg 14? [value seems to fit]
+  Byte12:	(unknown)
+  Byte13:	Sum of bytes 2-12
+
+Message D2: (user adjustable registers)
+---------------------------------------
+  Byte1:	D2 (message ID)
+  Byte2:	Reg 0 value
+  Byte3:	Reg 1 value
+  Byte4:	Reg 3 value
+  Byte5:	Reg 4 value
+  Byte6:	Reg 5 value
+  Byte7:	Reg 6 times 20 (0x14)
+  Byte8:	bit6(64)= PowerOn/Off [set= Power On], bit5(32) = Heat/Auto [Heat=Set], bit3(8) = Reg 8, bit2(4) = Reg 9, bit1(2)= Reg A(?), bit 0(1)= Reg B  [Bit 4 = reg 7?? reg 7 Read only]
+  Byte9:	Reg C - special signed. Bit 7 = negative flag (set = number is negative). Bits 6-0 is unsigned value
+  Byte10:	Reg D
+  Byte11:	Reg 2
+  Byte12:	(unknown)
+  Byte13:	Sum of bytes 2-12
+
+Message 33/[CC]: (updates from keypad for user adjustable regs)
+---------------------------------------------------------------
+[All bits inverted - perform bitwise NOT on message bytes before processing.]
+  Byte1:	CC (message ID)
+  Byte2:	Reg 0 value
+  Byte3:	Reg 1 value
+  Byte4:	Reg 3 value
+  Byte5:	Reg 4 value
+  Byte6:	Reg 5 value
+  Byte7:	Reg 6 times 20 (0x14)
+  Byte8:	bit6(64)= PowerOn/Off [set= Power On], bit5(32) = Heat/Auto [Heat=Set], bit3(8) = Reg 8, bit2(4) = Reg 9, bit1(2)= Reg A(?), bit 0(1)= Reg B  [Bit 4 = reg 7?? reg 7 Read only]
+  Byte9:	Reg C - special signed. Bit 7 = negative flag (set = number is negative). Bits 6-0 is unsigned value
+  Byte10:	Reg D
+  Byte11:	Reg 2
+  Byte12:	(unknown)
+  Byte13:	Sum of bytes 2-12
+
+Message 35[CA]: (sent during keypad init)
+-----------------------------------------
+[All bits inverted - perform bitwise NOT on message bytes before processing.]
+  Byte1-Byte12:	CA
+  Byte13:	AE Sum of bytes 2-12
